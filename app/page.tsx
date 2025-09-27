@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function Home() {
         if (!mounted) return;
         setUser(sessionUser);
         setLoading(false);
-      } catch (err) {
+      } catch (_err: unknown) {
         if (!mounted) return;
         // not authenticated
         router.replace('/login');

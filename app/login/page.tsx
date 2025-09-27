@@ -21,14 +21,14 @@ export default function LoginPage() {
 
     try {
       // Check if wallet is available
-      if (!(window as any).ethereum) {
+      if (!(window as unknown as { ethereum?: unknown }).ethereum) {
         throw new Error("No wallet found. Please install MetaMask or similar.");
       }
 
       // Request wallet connection
-      const accounts = await (window as any).ethereum.request({ 
+      const accounts = await ((window as unknown as { ethereum: { request: (params: { method: string }) => Promise<string[]> } }).ethereum.request({ 
         method: 'eth_requestAccounts' 
-      });
+      }));
       
       if (!accounts || accounts.length === 0) {
         throw new Error("No wallet account selected");
@@ -42,10 +42,10 @@ export default function LoginPage() {
       const fullMessage = `Sign this message to authenticate: ${message}`;
 
       // Request signature
-      const signature = await (window as any).ethereum.request({
+      const signature = await ((window as unknown as { ethereum: { request: (params: { method: string, params: [string, string] }) => Promise<string> } }).ethereum.request({
         method: 'personal_sign',
         params: [fullMessage, address]
-      });
+      }));
 
       // Send to server for verification and token generation
       const res = await fetch('/api/custom-token', {
@@ -65,15 +65,16 @@ export default function LoginPage() {
       }
 
       // Create session with custom token
-      await account.createSession({ 
-        userId: data.userId, 
-        secret: data.secret 
+      await account.createSession({
+        userId: data.userId,
+        secret: data.secret
       });
 
       router.push('/');
 
-    } catch (e: any) {
-      setError(e.message || 'Authentication failed');
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Authentication failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -197,7 +198,7 @@ export default function LoginPage() {
           <div style={{fontWeight: '600', marginBottom: '4px'}}>
             🔒 Cryptographic Authentication
           </div>
-          You'll be prompted to sign a message with your wallet. This proves ownership without exposing private keys.
+          You&apos;ll be prompted to sign a message with your wallet. This proves ownership without exposing private keys.
         </div>
       </div>
     </div>

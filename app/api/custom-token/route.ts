@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { Client, Users, ID } from 'node-appwrite';
+import { Client, Users, ID, Query } from 'node-appwrite';
+import { ethers } from 'ethers';
 
 export async function POST(req: Request) {
   try {
@@ -41,36 +42,42 @@ export async function POST(req: Request) {
     // Check if user exists by email (since we can't use wallet address as direct ID)
     let existingUserId = userId;
     try {
-      // In production, you'd maintain a mapping or use email as identifier
-      const existingUser = await users.list([`email=${email}`]);
-      if (existingUser.users.length > 0) {
-        existingUserId = existingUser.users[0].$id;
+      // Prefer querying by email if supported
+      const existingUsers = await users.list([Query.equal('email', email)]);
+      if ((existingUsers as any).total > 0 && (existingUsers as any).users?.length > 0) {
+        existingUserId = (existingUsers as any).users[0].$id;
       } else {
-        // Create new user
-        await users.create(userId, email);
-        existingUserId = userId;
+        const created = await users.create({ userId, email });
+        existingUserId = (created as any).$id || userId;
       }
-    } catch (error) {
-      // Create new user if not found
-      await users.create(userId, email);
-      existingUserId = userId;
+    } catch (_error: unknown) {
+      // Fallback to create user with minimal fields if list/query not supported
+      const created = await users.create({ userId, email });
+      existingUserId = (created as any).$id || userId;
     }
 
     // Create custom token
-    const token = await users.createToken(existingUserId);
+    const token = await users.createToken({ userId: existingUserId });
     
     return NextResponse.json({ 
       userId: existingUserId, 
       secret: token.secret 
     });
 
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Authentication failed' }, { status: 500 });
+  } catch (e: unknown) {
+    const errorMessage = e instanceof Error ? e.message : 'Authentication failed';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
 async function verifySignature(message: string, signature: string, address: string): Promise<boolean> {
-  // Placeholder - implement proper signature verification
-  // In production, use ethers.js or similar library
-  return true; // For POC, always return true
+  try {
+    // Recover the address from the signature
+    const recoveredAddress = ethers.verifyMessage(message, signature);
+    
+    // Compare with expected address (case insensitive)
+    return recoveredAddress.toLowerCase() === address.toLowerCase();
+  } catch (_error: unknown) {
+    return false;
+  }
 }
