@@ -21,10 +21,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'email and wallet required' }, { status: 400 });
     }
 
-    const endpoint = process.env.APPWRITE_ENDPOINT;
-    const project = process.env.APPWRITE_PROJECT_ID;
-    const apiKey = process.env.APPWRITE_API_KEY;
-
+    const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT; // re-use public vars
+    const project = process.env.NEXT_PUBLIC_APPWRITE_PROJECT; // re-use public vars
+    const apiKey = process.env.APPWRITE_API;
     if (!endpoint || !project || !apiKey) {
       return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
     }
@@ -45,8 +44,7 @@ export async function POST(req: Request) {
     }
 
     // Create short-lived token
-    const token = await users.createToken({ userId });
-
+    const token = await users.createToken(userId);
     return NextResponse.json({ userId, secret: token.secret });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Unexpected error' }, { status: 500 });
