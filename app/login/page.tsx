@@ -4,97 +4,202 @@ import { useState } from "react";
 import { account } from "../../lib/appwrite";
 import { useRouter } from "next/navigation";
 
-/*
-  Simplest possible flow using Appwrite Custom Token:
-  1. User enters email & connects wallet (client only; we don't store anything)
-  2. Client calls our server route /api/custom-token with email + wallet
-  3. Server route ensures (creates if needed) deterministic user and returns { userId, secret }
-  4. Client exchanges userId + secret for a session via account.createSession
-*/
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const connectWallet = async () => {
-    setError(null);
-    if (!(window as any).ethereum) {
-      setError("No injected wallet found (MetaMask?)");
+  const authenticateWithWallet = async () => {
+    if (!email) {
+      setError("Email is required");
       return;
     }
-    try {
-      setConnecting(true);
-      const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-      const address = accounts?.[0];
-      if (!address) throw new Error("No account returned");
-      setWalletAddress(address);
-    } catch (e: any) {
-      setError(e.message || String(e));
-    } finally {
-      setConnecting(false);
-    }
-  };
 
-  const proceed = async () => {
-    if (!email) { setError("Email required"); return; }
-    if (!walletAddress) { setError("Connect wallet first"); return; }
     setError(null);
     setLoading(true);
+
     try {
+      // Check if wallet is available
+      if (!(window as any).ethereum) {
+        throw new Error("No wallet found. Please install MetaMask or similar.");
+      }
+
+      // Request wallet connection
+      const accounts = await (window as any).ethereum.request({ 
+        method: 'eth_requestAccounts' 
+      });
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No wallet account selected");
+      }
+
+      const address = accounts[0];
+      
+      // Generate authentication message
+      const timestamp = Date.now();
+      const message = `auth-${timestamp}`;
+      const fullMessage = `Sign this message to authenticate: ${message}`;
+
+      // Request signature
+      const signature = await (window as any).ethereum.request({
+        method: 'personal_sign',
+        params: [fullMessage, address]
+      });
+
+      // Send to server for verification and token generation
       const res = await fetch('/api/custom-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, wallet: walletAddress })
+        body: JSON.stringify({ 
+          email, 
+          address, 
+          signature, 
+          message 
+        })
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      await account.createSession({ userId: data.userId, secret: data.secret });
+      if (!res.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      // Create session with custom token
+      await account.createSession({ 
+        userId: data.userId, 
+        secret: data.secret 
+      });
+
       router.push('/');
+
     } catch (e: any) {
-      setError(e.message || String(e));
+      setError(e.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main style={{display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh'}}>
-      <div style={{width: 360, padding: 20, border: '1px solid #ddd', borderRadius: 8}}>
-        <h2 style={{marginBottom: 4}}>Wallet Login (POC)</h2>
-        <p style={{fontSize: 12, color: '#555', marginBottom: 12}}>Custom Token + Email + Wallet (no password).</p>
-        {error && <div style={{color: 'red', marginBottom: 12}}>{error}</div>}
-        <div style={{marginBottom: 12}}>
-          <label style={{display: 'block', marginBottom: 4}}>Email</label>
-            <input
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={{width: '100%'}}
-              placeholder="you@example.com"
-            />
+    <div style={{
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    }}>
+      <div style={{
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '20px',
+        padding: '40px',
+        width: '100%',
+        maxWidth: '420px',
+        boxShadow: '0 20px 40px rgba(102, 126, 234, 0.3)'
+      }}>
+        <div style={{textAlign: 'center', marginBottom: '32px'}}>
+          <h1 style={{
+            fontSize: '28px',
+            fontWeight: '700',
+            color: '#4c1d95',
+            margin: '0 0 8px 0'
+          }}>
+            Web3 Authentication
+          </h1>
+          <p style={{
+            fontSize: '16px',
+            color: '#6b7280',
+            margin: '0',
+            fontWeight: '400'
+          }}>
+            Sign in with your wallet
+          </p>
         </div>
-        <div style={{marginBottom: 16}}>
-          <button
-            onClick={connectWallet}
-            style={{width: '100%', padding: '8px 12px'}}
-            disabled={connecting}
-            type="button"
-          >
-            {walletAddress ? `Wallet: ${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}` : (connecting ? 'Connecting…' : 'Connect Wallet')}
-          </button>
+
+        {error && (
+          <div style={{
+            background: 'linear-gradient(135deg, #fef2f2, #fecaca)',
+            border: '1px solid #f87171',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '24px',
+            color: '#dc2626',
+            fontSize: '14px'
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{marginBottom: '32px'}}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '8px'
+          }}>
+            Email Address
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              fontSize: '16px',
+              border: '2px solid #e5e7eb',
+              borderRadius: '12px',
+              outline: 'none',
+              transition: 'all 0.2s ease',
+              boxSizing: 'border-box',
+              opacity: loading ? 0.6 : 1
+            }}
+          />
         </div>
+
         <button
-          onClick={proceed}
-          style={{width: '100%', padding: '10px 12px', fontWeight: 600}}
+          onClick={authenticateWithWallet}
+          disabled={!email || loading}
           type="button"
-          disabled={!walletAddress || !email || loading}
+          style={{
+            width: '100%',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: '700',
+            border: 'none',
+            borderRadius: '12px',
+            background: (!email || loading) ? 
+              '#d1d5db' : 
+              'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+            color: 'white',
+            cursor: (!email || loading) ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            outline: 'none',
+            marginBottom: '24px'
+          }}
         >
-          {loading ? 'Authenticating…' : 'Continue'}
+          {loading ? '🔐 Authenticating...' : '🔐 Connect & Sign'}
         </button>
+
+        <div style={{
+          background: 'linear-gradient(135deg, #faf5ff, #f3e8ff)',
+          border: '1px solid #c4b5fd',
+          borderRadius: '12px',
+          padding: '16px',
+          fontSize: '13px',
+          lineHeight: '1.5',
+          color: '#5b21b6'
+        }}>
+          <div style={{fontWeight: '600', marginBottom: '4px'}}>
+            🔒 Cryptographic Authentication
+          </div>
+          You'll be prompted to sign a message with your wallet. This proves ownership without exposing private keys.
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
