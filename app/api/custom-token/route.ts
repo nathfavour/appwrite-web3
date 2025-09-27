@@ -35,25 +35,37 @@ export async function POST(req: Request) {
       .setKey(apiKey);
 
     const users = new Users(client);
+    const normalizedEthAddress = normalizeEthAddress(address);
     
     // Create deterministic but compliant userId from address hash
     const userId = ID.unique(); // For now, use unique ID
     
-    // Check if user exists by email (since we can't use wallet address as direct ID)
+    // Check if user exists by email (bind wallet to user prefs without extra DB)
     let existingUserId = userId;
     try {
-      // Prefer querying by email if supported
       const existingUsers = await users.list([Query.equal('email', email)]);
       if ((existingUsers as any).total > 0 && (existingUsers as any).users?.length > 0) {
-        existingUserId = (existingUsers as any).users[0].$id;
+        const existing = (existingUsers as any).users[0];
+        existingUserId = existing.$id;
+        const existingWallet = (existing.prefs?.walletEth as string | undefined)?.toLowerCase();
+        if (existingWallet && existingWallet !== normalizedEthAddress) {
+          return NextResponse.json({ error: 'Email already bound to a different wallet' }, { status: 403 });
+        }
+        if (!existingWallet) {
+          // First-time bind: attach wallet to this user via prefs
+          await users.updatePrefs(existingUserId, { ...(existing.prefs || {}), walletEth: normalizedEthAddress });
+        }
       } else {
+        // Create new user then bind wallet in prefs
         const created = await users.create({ userId, email });
         existingUserId = (created as any).$id || userId;
+        await users.updatePrefs(existingUserId, { walletEth: normalizedEthAddress });
       }
     } catch (_error: unknown) {
-      // Fallback to create user with minimal fields if list/query not supported
+      // Fallback: create new user and bind wallet
       const created = await users.create({ userId, email });
       existingUserId = (created as any).$id || userId;
+      try { await users.updatePrefs(existingUserId, { walletEth: normalizedEthAddress }); } catch { /* ignore */ }
     }
 
     // Create custom token
@@ -79,5 +91,17 @@ async function verifySignature(message: string, signature: string, address: stri
     return recoveredAddress.toLowerCase() === address.toLowerCase();
   } catch (_error: unknown) {
     return false;
+  }
+}
+
+function normalizeEthAddress(address: string): string {
+  try {
+    // ethers v6 canonicalizes and checksums the address
+    // Store and compare using lower-case to avoid checksum mismatches
+    // This keeps prefs stable and comparisons simple
+    // If invalid, this will throw and we fall back to a trimmed lower-case string
+    return (ethers.getAddress(address)).toLowerCase();
+  } catch (_e) {
+    return (address || '').trim().toLowerCase();
   }
 }
