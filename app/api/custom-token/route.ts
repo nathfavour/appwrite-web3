@@ -48,6 +48,15 @@ export async function POST(req: Request) {
         const existing = (existingUsers as any).users[0];
         existingUserId = existing.$id;
         const existingWallet = (existing.prefs?.walletEth as string | undefined)?.toLowerCase();
+        const hasPasskey = Boolean((existing.prefs as any)?.passkey_credentials);
+
+        // If account has passkey but no wallet linked, require passkey sign-in first
+        if (hasPasskey && !existingWallet) {
+          return NextResponse.json(
+            { error: 'Account already connected with passkey. Sign in with passkey to link wallet.' },
+            { status: 403 }
+          );
+        }
         if (existingWallet && existingWallet !== normalizedEthAddress) {
           return NextResponse.json({ error: 'Email already bound to a different wallet' }, { status: 403 });
         }
