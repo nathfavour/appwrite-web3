@@ -11,9 +11,16 @@ export type AuthMethod = 'default' | 'function';
 
 /**
  * Get the configured authentication method from environment
+ * Works in both client and server contexts
  */
 export function getAuthMethod(): AuthMethod {
   const method = process.env.NEXT_PUBLIC_APPWRITE_AUTH_METHOD?.toLowerCase();
+  
+  console.log('🔧 getAuthMethod called:', {
+    raw: process.env.NEXT_PUBLIC_APPWRITE_AUTH_METHOD,
+    lowercase: method,
+    willReturn: method === 'function' ? 'function' : 'default'
+  });
   
   if (method === 'function') {
     return 'function';

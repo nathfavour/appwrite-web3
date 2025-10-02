@@ -20,6 +20,12 @@ export class AppwriteFunctionProvider implements IAuthProvider {
     const project = process.env.NEXT_PUBLIC_APPWRITE_PROJECT;
     const functionId = process.env.NEXT_PUBLIC_APPWRITE_FUNCTION_ID;
 
+    console.log('🔧 AppwriteFunctionProvider constructor:', {
+      endpoint,
+      project,
+      functionId
+    });
+
     if (!endpoint || !project) {
       throw new Error('Appwrite endpoint and project ID are required');
     }
@@ -27,6 +33,8 @@ export class AppwriteFunctionProvider implements IAuthProvider {
     if (!functionId) {
       throw new Error('NEXT_PUBLIC_APPWRITE_FUNCTION_ID environment variable is required when using function auth method');
     }
+
+    console.log('✅ AppwriteFunctionProvider initialized with function ID:', functionId);
 
     this.client
       .setEndpoint(endpoint)
@@ -42,12 +50,18 @@ export class AppwriteFunctionProvider implements IAuthProvider {
 
   async authenticate(request: Web3AuthRequest): Promise<Web3AuthResponse> {
     try {
+      console.log('🚀 Calling Appwrite Function:', this.functionId);
+      console.log('📤 Request:', request);
+      
       // Call the Appwrite Function using SDK
       const execution = await this.functions.createExecution(
         this.functionId,
         JSON.stringify(request),
         false // Get immediate response
       );
+
+      console.log('📥 Function response:', execution);
+      console.log('Status code:', execution.responseStatusCode);
 
       // Parse the response
       const response = JSON.parse(execution.responseBody);
@@ -62,6 +76,7 @@ export class AppwriteFunctionProvider implements IAuthProvider {
         secret: response.secret
       };
     } catch (error) {
+      console.error('❌ Function call failed:', error);
       if (error instanceof Error) {
         throw error;
       }

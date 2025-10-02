@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { authenticateAndCreateSession, getAuthMethod } from "../../lib/auth";
 
@@ -13,6 +13,14 @@ export default function ModularLoginPage() {
   // Get the configured auth method for display
   const authMethod = getAuthMethod();
 
+  // Debug: Log environment variables on mount
+  useEffect(() => {
+    console.log('🔍 Environment Debug:');
+    console.log('NEXT_PUBLIC_APPWRITE_AUTH_METHOD:', process.env.NEXT_PUBLIC_APPWRITE_AUTH_METHOD);
+    console.log('NEXT_PUBLIC_APPWRITE_FUNCTION_ID:', process.env.NEXT_PUBLIC_APPWRITE_FUNCTION_ID);
+    console.log('Detected auth method:', authMethod);
+  }, [authMethod]);
+
   const handleLogin = async () => {
     if (!email) {
       setError("Email is required");
@@ -23,6 +31,8 @@ export default function ModularLoginPage() {
     setLoading(true);
 
     try {
+      console.log('🔐 Starting authentication with method:', authMethod);
+      
       // Use the modular authentication system
       // It automatically picks the correct provider based on environment
       await authenticateAndCreateSession(email);
@@ -32,6 +42,7 @@ export default function ModularLoginPage() {
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Authentication failed';
       setError(errorMessage);
+      console.error('Authentication error:', e);
     } finally {
       setLoading(false);
     }
