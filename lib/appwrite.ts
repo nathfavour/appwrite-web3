@@ -1,5 +1,5 @@
 // @ts-expect-error - Appwrite types issue with Next.js 15
-import { Client, Account } from 'appwrite';
+import { Client, Account, Functions } from 'appwrite';
 
 const client = new Client();
 
@@ -10,5 +10,6 @@ if (process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT) {
 }
 
 const account = new Account(client);
+const functions = new Functions(client);
 
-export { client, account };
+export { client, account, functions };
