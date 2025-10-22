@@ -25,6 +25,9 @@ export function useWalletManager() {
     setState(prev => ({ ...prev, loading: true, error: null, success: null }));
 
     try {
+      const user = await account.get();
+      const userId = user.$id;
+
       const eth = window as unknown as { ethereum: { request: (args: { method: string; params?: string[] }) => Promise<string[] | string> } };
       const accounts = await eth.ethereum.request({
         method: 'eth_requestAccounts'
@@ -42,7 +45,7 @@ export function useWalletManager() {
 
       const execution = await functions.createExecution(
         process.env.NEXT_PUBLIC_FUNCTION_ID!,
-        JSON.stringify({ address, signature, message }),
+        JSON.stringify({ userId, address, signature, message }),
         false,
         '/connect-wallet'
       );
