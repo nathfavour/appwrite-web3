@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { account } from "../../lib/appwrite";
+import { account, functions } from "../../lib/appwrite";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -47,30 +47,27 @@ export default function LoginPage() {
         params: [fullMessage, address]
       }));
 
-      // Send to server for verification and token generation
-      const res = await fetch('/api/custom-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          address, 
-          signature, 
-          message 
-        })
-      });
+      // Call Appwrite Function
+      const execution = await functions.createExecution(
+        process.env.NEXT_PUBLIC_FUNCTION_ID!,
+        JSON.stringify({ email, address, signature, message }),
+        false
+      );
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
+      const response = JSON.parse(execution.responseBody);
+
+      if (execution.responseStatusCode !== 200) {
+        throw new Error(response.error || 'Authentication failed');
       }
 
-      // Create session with custom token
+      // Create session
       await account.createSession({
-        userId: data.userId,
-        secret: data.secret
+        userId: response.userId,
+        secret: response.secret
       });
 
       router.push('/');
+      router.refresh();
 
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Authentication failed';
