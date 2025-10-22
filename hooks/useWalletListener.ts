@@ -3,15 +3,6 @@
 import { useEffect } from 'react';
 import { account } from '@/lib/appwrite';
 
-declare global {
-  interface Window {
-    ethereum?: {
-      on?: (event: string, handler: (...args: unknown[]) => void | Promise<void>) => void;
-      removeListener?: (event: string, handler: (...args: unknown[]) => void | Promise<void>) => void;
-    };
-  }
-}
-
 export function useWalletListener() {
   useEffect(() => {
     if (!window.ethereum) return;

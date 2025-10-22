@@ -9,16 +9,6 @@ interface WalletManagerState {
   success: string | null;
 }
 
-type EthereumRequest = (args: { method: string; params?: string[] }) => Promise<string[] | string>;
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: EthereumRequest;
-    };
-  }
-}
-
 export function useWalletManager() {
   const [state, setState] = useState<WalletManagerState>({
     loading: false,
