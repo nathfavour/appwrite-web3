@@ -9,6 +9,16 @@ interface WalletManagerState {
   success: string | null;
 }
 
+type EthereumRequest = (args: { method: string; params?: string[] }) => Promise<string[] | string>;
+
+declare global {
+  interface Window {
+    ethereum?: {
+      request: EthereumRequest;
+    };
+  }
+}
+
 export function useWalletManager() {
   const [state, setState] = useState<WalletManagerState>({
     loading: false,
@@ -25,19 +35,19 @@ export function useWalletManager() {
     setState(prev => ({ ...prev, loading: true, error: null, success: null }));
 
     try {
-      const accounts = await (window.ethereum as { request: (args: { method: string }) => Promise<string[]> }).request({
+      const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts'
-      });
+      }) as string[];
       const address = accounts[0];
 
       const timestamp = Date.now();
       const message = `auth-${timestamp}`;
       const fullMessage = `Sign this message to authenticate: ${message}`;
 
-      const signature = await (window.ethereum as { request: (args: { method: string; params: [string, string] }) => Promise<string> }).request({
+      const signature = await window.ethereum.request({
         method: 'personal_sign',
         params: [fullMessage, address]
-      });
+      }) as string;
 
       const execution = await functions.createExecution(
         process.env.NEXT_PUBLIC_FUNCTION_ID!,

@@ -62,7 +62,7 @@ export default function WalletSettings() {
       {loading ? (
         <div>Loading wallet info...</div>
       ) : (
-        <div style={{ space: '12px' }}>
+        <div>
           {hasWallet && (
             <div style={{
               background: 'white',

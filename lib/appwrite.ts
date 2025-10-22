@@ -1,4 +1,3 @@
-// @ts-expect-error - Appwrite types issue with Next.js 15
 import { Client, Account, Functions } from 'appwrite';
 
 const client = new Client();
