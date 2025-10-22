@@ -17,7 +17,7 @@ export default function Home() {
         if (!mounted) return;
         setUser(sessionUser);
         setLoading(false);
-      } catch (_err: unknown) {
+      } catch {
         if (!mounted) return;
         // not authenticated
         router.replace('/login');
