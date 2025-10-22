@@ -22,6 +22,11 @@ export function useWalletManager() {
       return false;
     }
 
+    if (!process.env.NEXT_PUBLIC_FUNCTION_ID) {
+      setState(prev => ({ ...prev, error: 'Function ID not configured' }));
+      return false;
+    }
+
     setState(prev => ({ ...prev, loading: true, error: null, success: null }));
 
     try {
@@ -40,7 +45,7 @@ export function useWalletManager() {
       }) as string;
 
       const execution = await functions.createExecution(
-        process.env.NEXT_PUBLIC_FUNCTION_ID!,
+        process.env.NEXT_PUBLIC_FUNCTION_ID,
         JSON.stringify({ address, signature, message }),
         false,
         '/connect-wallet'
@@ -71,11 +76,16 @@ export function useWalletManager() {
   };
 
   const disconnectWallet = async (): Promise<boolean> => {
+    if (!process.env.NEXT_PUBLIC_FUNCTION_ID) {
+      setState(prev => ({ ...prev, error: 'Function ID not configured' }));
+      return false;
+    }
+
     setState(prev => ({ ...prev, loading: true, error: null, success: null }));
 
     try {
       const execution = await functions.createExecution(
-        process.env.NEXT_PUBLIC_FUNCTION_ID!,
+        process.env.NEXT_PUBLIC_FUNCTION_ID,
         JSON.stringify({}),
         false,
         '/disconnect-wallet'
