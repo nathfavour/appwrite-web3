@@ -3,12 +3,8 @@
 import { useEffect, useState } from 'react';
 import { account } from '@/lib/appwrite';
 import { useWalletManager } from '@/hooks/useWalletManager';
-import { useWalletListener } from '@/hooks/useWalletListener';
 
 interface User {
-  $id: string;
-  email: string;
-  name?: string;
   prefs?: {
     walletEth?: string;
   };
@@ -25,8 +21,6 @@ export default function WalletSettings() {
     disconnectWallet,
     clearMessages
   } = useWalletManager();
-
-  useWalletListener();
 
   useEffect(() => {
     fetchUser();
@@ -173,7 +167,6 @@ export default function WalletSettings() {
           <p style={{
             fontSize: '12px',
             color: '#6b7280',
-            marginTop: '12px',
             margin: '12px 0 0 0'
           }}>
             {hasWallet

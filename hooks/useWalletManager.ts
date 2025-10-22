@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { functions } from '@/lib/appwrite';
+import { functions, account } from '@/lib/appwrite';
 
 interface WalletManagerState {
   loading: boolean;
@@ -17,20 +17,16 @@ export function useWalletManager() {
   });
 
   const connectWallet = async (): Promise<boolean> => {
-    if (!window.ethereum) {
+    if (!(window as unknown as { ethereum?: unknown }).ethereum) {
       setState(prev => ({ ...prev, error: 'MetaMask not installed' }));
-      return false;
-    }
-
-    if (!process.env.NEXT_PUBLIC_FUNCTION_ID) {
-      setState(prev => ({ ...prev, error: 'Function ID not configured' }));
       return false;
     }
 
     setState(prev => ({ ...prev, loading: true, error: null, success: null }));
 
     try {
-      const accounts = await window.ethereum.request({
+      const eth = window as unknown as { ethereum: { request: (args: { method: string; params?: string[] }) => Promise<string[] | string> } };
+      const accounts = await eth.ethereum.request({
         method: 'eth_requestAccounts'
       }) as string[];
       const address = accounts[0];
@@ -39,13 +35,13 @@ export function useWalletManager() {
       const message = `auth-${timestamp}`;
       const fullMessage = `Sign this message to authenticate: ${message}`;
 
-      const signature = await window.ethereum.request({
+      const signature = await eth.ethereum.request({
         method: 'personal_sign',
         params: [fullMessage, address]
       }) as string;
 
       const execution = await functions.createExecution(
-        process.env.NEXT_PUBLIC_FUNCTION_ID,
+        process.env.NEXT_PUBLIC_FUNCTION_ID!,
         JSON.stringify({ address, signature, message }),
         false,
         '/connect-wallet'
@@ -59,7 +55,7 @@ export function useWalletManager() {
 
       setState(prev => ({
         ...prev,
-        success: `Wallet connected: ${address.substring(0, 6)}...${address.substring(38)}`
+        success: `Wallet connected: ${address}`
       }));
       return true;
 
@@ -76,26 +72,15 @@ export function useWalletManager() {
   };
 
   const disconnectWallet = async (): Promise<boolean> => {
-    if (!process.env.NEXT_PUBLIC_FUNCTION_ID) {
-      setState(prev => ({ ...prev, error: 'Function ID not configured' }));
-      return false;
-    }
-
     setState(prev => ({ ...prev, loading: true, error: null, success: null }));
 
     try {
-      const execution = await functions.createExecution(
-        process.env.NEXT_PUBLIC_FUNCTION_ID,
-        JSON.stringify({}),
-        false,
-        '/disconnect-wallet'
-      );
+      const user = await account.get();
 
-      const response = JSON.parse(execution.responseBody);
-
-      if (execution.responseStatusCode !== 200) {
-        throw new Error(response.error || 'Failed to disconnect wallet');
-      }
+      await account.updatePrefs({
+        ...user.prefs,
+        walletEth: undefined
+      });
 
       setState(prev => ({
         ...prev,
